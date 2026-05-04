@@ -1,0 +1,86 @@
+spring:
+  application:
+    name: backend
+  profiles:
+    default: dev
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:0123456789abcdef0123456789abcdef}
+    issuer: scim-app
+    access-token-minutes: 15
+    refresh-token-days: 7
+  scim:
+    api-token: ${SCIM_API_TOKEN:scrambleid-local-bearer-token-change-me}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8081}
+  compose:
+    bootstrap-admin: ${APP_COMPOSE_BOOTSTRAP_ADMIN:false}
+
+---
+# Local development: in-memory H2 (no Docker required for Step 2+)
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:h2:mem:scimapp;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+
+---
+# PostgreSQL (Docker / production-style)
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:scimapp}
+    username: ${DB_USER:scimapp}
+    password: ${DB_PASSWORD:scimapp}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+
+---
+# Tests
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:h2:mem:test;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true

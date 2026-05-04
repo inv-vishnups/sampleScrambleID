@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: scimapp
+      POSTGRES_USER: scimapp
+      POSTGRES_PASSWORD: scimapp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scimapp -d scimapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: scimapp
+      DB_USER: scimapp
+      DB_PASSWORD: scimapp
+      JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef}
+      SCIM_API_TOKEN: ${SCIM_API_TOKEN:-scrambleid-docker-token-change-me}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://localhost:8081}
+      APP_COMPOSE_BOOTSTRAP_ADMIN: ${APP_COMPOSE_BOOTSTRAP_ADMIN:-true}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

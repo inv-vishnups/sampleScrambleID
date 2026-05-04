@@ -1,0 +1,24 @@
+<div class="login-page">
+	<div class="card">
+		<h1>Sign in</h1>
+		<p class="hint">Use the dev user from the Spring Boot backend (<code>admin</code> / <code>ChangeMe!123</code> when profile <code>dev</code> is active).</p>
+
+		@if (error()) {
+			<p class="error" role="alert">{{ error() }}</p>
+		}
+
+		<form [formGroup]="form" (ngSubmit)="submit()">
+			<label>
+				<span>Username</span>
+				<input type="text" formControlName="username" autocomplete="username" />
+			</label>
+			<label>
+				<span>Password</span>
+				<input type="password" formControlName="password" autocomplete="current-password" />
+			</label>
+			<button type="submit" [disabled]="submitting()">
+				{{ submitting() ? 'Signing in…' : 'Sign in' }}
+			</button>
+		</form>
+	</div>
+</div>

@@ -1,0 +1,53 @@
+<div class="dashboard">
+	<header class="top">
+		<div>
+			<h1>Dashboard</h1>
+			<p class="sub">Signed in via JWT; SCIM provisioning stays on the backend only.</p>
+		</div>
+		<button type="button" class="btn-ghost" (click)="logout()">Log out</button>
+	</header>
+
+	@if (loadError()) {
+		<p class="banner error">{{ loadError() }}</p>
+	} @else {
+		@if (profile(); as p) {
+			<section class="panel">
+				<h2>Your profile</h2>
+				<dl>
+					<dt>Username</dt>
+					<dd>{{ p.username }}</dd>
+					<dt>Email</dt>
+					<dd>{{ p.email }}</dd>
+					<dt>User id</dt>
+					<dd><code>{{ p.id }}</code></dd>
+					<dt>Roles</dt>
+					<dd>
+						@for (r of p.roles; track r) {
+							<span class="pill">{{ r }}</span>
+						}
+					</dd>
+				</dl>
+			</section>
+
+			@if (isAdmin()) {
+				<section class="panel admin">
+					<h2>Admin check</h2>
+					<p class="muted">Calls <code>/api/admin/ping</code> (requires <code>ADMIN</code> role).</p>
+					<button type="button" class="btn-primary" (click)="tryAdminPing()">Ping admin API</button>
+					@if (adminPing()) {
+						<p class="ok">Response: <strong>{{ adminPing() }}</strong></p>
+					}
+					@if (adminError()) {
+						<p class="banner error tight">{{ adminError() }}</p>
+					}
+				</section>
+			} @else {
+				<section class="panel muted-box">
+					<p>You have the <strong>USER</strong> role only. Admin-only UI is hidden.</p>
+				</section>
+			}
+		} @else {
+			<p class="loading">Loading your profile…</p>
+		}
+	}
+</div>
