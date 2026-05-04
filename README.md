@@ -52,6 +52,9 @@ Compose sets `SPRING_PROFILES_ACTIVE=docker`, Postgres, and optional first admin
 | `SCIM_API_TOKEN` | Backend | `Authorization: Bearer …` for `/scim/v2/**`. |
 | `APP_CORS_ALLOWED_ORIGINS` | Backend | Comma-separated browser origins. |
 | `APP_COMPOSE_BOOTSTRAP_ADMIN` | Backend / Compose | `true` to seed `admin` when DB has no users (disable in real deployments). |
+| `APP_SCIM_AUDIT_ENABLED` | Backend | `true` (default): log each `/scim/v2/**` call (method, path, status, actor, duration; no bodies). |
+| `APP_SCIM_AUDIT_LOG_DENIED_REQUESTS` | Backend | Log 401/403 SCIM responses (default `true`). |
+| `APP_SCIM_AUDIT_VERBOSE_READS_AT_DEBUG` | Backend | `true` (default): log GET/HEAD at DEBUG; mutations at INFO. |
 
 ## API sketch
 

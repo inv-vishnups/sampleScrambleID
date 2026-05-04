@@ -2,7 +2,7 @@
 	<header class="top">
 		<div>
 			<h1>Dashboard</h1>
-			<p class="sub">Signed in via JWT; SCIM provisioning stays on the backend only.</p>
+			<p class="sub">Signed in via JWT. Admins can provision users and groups through SCIM from this UI.</p>
 		</div>
 		<button type="button" class="btn-ghost" (click)="logout()">Log out</button>
 	</header>
@@ -39,6 +39,101 @@
 					}
 					@if (adminError()) {
 						<p class="banner error tight">{{ adminError() }}</p>
+					}
+				</section>
+
+				<section class="panel admin">
+					<h2>Add user (SCIM)</h2>
+					<p class="muted">
+						Submits <code>POST /scim/v2/Users</code> with your admin JWT. New accounts get role
+						<code>USER</code> and a random password (reset flow not shown here).
+					</p>
+					<form class="add-user-form" [formGroup]="addUserForm" (ngSubmit)="submitAddUser()">
+						<label class="field">
+							<span>Username</span>
+							<input type="text" formControlName="username" autocomplete="off" />
+						</label>
+						<label class="field">
+							<span>Email</span>
+							<input type="email" formControlName="email" autocomplete="off" />
+						</label>
+						<label class="field">
+							<span>First name</span>
+							<input type="text" formControlName="firstName" autocomplete="off" />
+						</label>
+						<label class="field">
+							<span>Last name</span>
+							<input type="text" formControlName="lastName" autocomplete="off" />
+						</label>
+						@if (addUserForm.controls.username.touched && addUserForm.controls.username.invalid) {
+							<p class="field-error">Username is required.</p>
+						}
+						@if (addUserForm.controls.email.touched && addUserForm.controls.email.invalid) {
+							<p class="field-error">Valid email is required.</p>
+						}
+						<button type="submit" class="btn-primary" [disabled]="addUserSubmitting()">
+							{{ addUserSubmitting() ? 'Creating…' : 'Create user via SCIM' }}
+						</button>
+					</form>
+					@if (addUserSuccess()) {
+						<p class="ok tight-top">{{ addUserSuccess() }}</p>
+					}
+					@if (addUserError()) {
+						<p class="banner error tight tight-top">{{ addUserError() }}</p>
+					}
+				</section>
+
+				<section class="panel admin">
+					<h2>Create group (SCIM)</h2>
+					<p class="muted">
+						<code>POST /scim/v2/Groups</code> with your admin JWT. Optionally add members by user id (loaded from
+						<code>GET /scim/v2/Users</code>).
+					</p>
+					@if (scimUsersLoading()) {
+						<p class="muted">Loading user directory…</p>
+					}
+					@if (scimUsersError()) {
+						<p class="banner error tight">{{ scimUsersError() }}</p>
+						<button type="button" class="btn-ghost tight-top" (click)="loadScimUserDirectory()">Retry</button>
+					}
+					<form class="add-user-form" [formGroup]="addGroupForm" (ngSubmit)="submitAddGroup()">
+						<label class="field">
+							<span>Display name</span>
+							<input type="text" formControlName="displayName" autocomplete="off" />
+						</label>
+						<label class="field">
+							<span>External id (optional)</span>
+							<input type="text" formControlName="externalId" autocomplete="off" placeholder="IdP stable id" />
+						</label>
+						@if (addGroupForm.controls.displayName.touched && addGroupForm.controls.displayName.invalid) {
+							<p class="field-error">Display name is required.</p>
+						}
+						@if (scimUsers().length > 0) {
+							<div class="field">
+								<span>Members (optional)</span>
+								<div class="member-picker" role="group" aria-label="Select group members">
+									@for (u of scimUsers(); track u.id) {
+										<label class="member-row">
+											<input
+												type="checkbox"
+												[checked]="isMemberSelected(u.id)"
+												(change)="toggleMember(u.id)"
+											/>
+											<span class="member-label"><code>{{ u.id }}</code> — {{ u.userName }}</span>
+										</label>
+									}
+								</div>
+							</div>
+						}
+						<button type="submit" class="btn-primary" [disabled]="addGroupSubmitting()">
+							{{ addGroupSubmitting() ? 'Creating…' : 'Create group via SCIM' }}
+						</button>
+					</form>
+					@if (addGroupSuccess()) {
+						<p class="ok tight-top">{{ addGroupSuccess() }}</p>
+					}
+					@if (addGroupError()) {
+						<p class="banner error tight tight-top">{{ addGroupError() }}</p>
 					}
 				</section>
 			} @else {
