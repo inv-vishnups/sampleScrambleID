@@ -9,14 +9,26 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.scimapp.backend.entity.Role;
+import com.scimapp.backend.entity.User;
+import com.scimapp.backend.repository.RoleRepository;
+import com.scimapp.backend.repository.UserRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -28,6 +40,48 @@ class ScimUserIntegrationTest {
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private RoleRepository roleRepository;
+
+	@Autowired
+	private PasswordEncoder passwordEncoder;
+
+	@Autowired
+	private ObjectMapper objectMapper;
+
+	@BeforeEach
+	void seedJwtTestUsers() {
+		if (!userRepository.existsByUsername("scim_admin")) {
+			User admin = new User("scim_admin", "scim_admin@example.com", passwordEncoder.encode("AdminPass1"));
+			Set<Role> roles = new HashSet<>();
+			roles.add(roleRepository.findByName("ADMIN").orElseThrow());
+			admin.setRoles(roles);
+			userRepository.save(admin);
+		}
+		if (!userRepository.existsByUsername("scim_plain_user")) {
+			User plain = new User("scim_plain_user", "scim_plain@example.com", passwordEncoder.encode("UserPass1"));
+			Set<Role> roles = new HashSet<>();
+			roles.add(roleRepository.findByName("USER").orElseThrow());
+			plain.setRoles(roles);
+			userRepository.save(plain);
+		}
+	}
+
+	private String accessTokenForUser(String username, String password) throws Exception {
+		String body = mockMvc.perform(post("/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		JsonNode node = objectMapper.readTree(body);
+		return node.get("accessToken").asText();
+	}
 
 	@Test
 	void withoutBearer_returns401() throws Exception {
@@ -149,5 +203,42 @@ class ScimUserIntegrationTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.emails[0].value").value("new.mail@example.com"))
 			.andExpect(jsonPath("$.name.givenName").value("X"));
+	}
+
+	@Test
+	void createWithAdminJwt_succeeds() throws Exception {
+		String jwt = accessTokenForUser("scim_admin", "AdminPass1");
+		String createJson = """
+				{
+				  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+				  "userName": "jwt.created.user",
+				  "active": true,
+				  "name": { "givenName": "JWT", "familyName": "Created" },
+				  "emails": [ { "value": "jwt.created.user@example.com", "primary": true } ]
+				}
+				""";
+		mockMvc.perform(post("/scim/v2/Users")
+				.header("Authorization", "Bearer " + jwt)
+				.contentType("application/scim+json")
+				.content(createJson))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.userName").value("jwt.created.user"))
+			.andExpect(jsonPath("$.meta.location").exists());
+	}
+
+	@Test
+	void createWithUserJwt_returns403() throws Exception {
+		String jwt = accessTokenForUser("scim_plain_user", "UserPass1");
+		String createJson = """
+				{
+				  "userName": "forbidden.user",
+				  "emails": [ { "value": "forbidden.user@example.com", "primary": true } ]
+				}
+				""";
+		mockMvc.perform(post("/scim/v2/Users")
+				.header("Authorization", "Bearer " + jwt)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(createJson))
+			.andExpect(status().isForbidden());
 	}
 }

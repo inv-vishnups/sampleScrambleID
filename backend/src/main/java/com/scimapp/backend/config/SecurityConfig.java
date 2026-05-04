@@ -25,8 +25,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scimapp.backend.security.JsonAuthEntryPoint;
 import com.scimapp.backend.security.JwtAuthenticationFilter;
 import com.scimapp.backend.security.JwtService;
+import com.scimapp.backend.security.ScimAuditLoggingFilter;
+import com.scimapp.backend.security.ScimAuditProperties;
 import com.scimapp.backend.security.ScimAuthProperties;
-import com.scimapp.backend.security.ScimBearerAuthenticationFilter;
+import com.scimapp.backend.security.ScimAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -44,10 +46,16 @@ public class SecurityConfig {
 	}
 
 	@Bean
-	public ScimBearerAuthenticationFilter scimBearerAuthenticationFilter(
+	public ScimAuthenticationFilter scimAuthenticationFilter(
 			ScimAuthProperties scimAuthProperties,
-			ObjectMapper objectMapper) {
-		return new ScimBearerAuthenticationFilter(scimAuthProperties, objectMapper);
+			ObjectMapper objectMapper,
+			JwtService jwtService) {
+		return new ScimAuthenticationFilter(scimAuthProperties, objectMapper, jwtService);
+	}
+
+	@Bean
+	public ScimAuditLoggingFilter scimAuditLoggingFilter(ScimAuditProperties scimAuditProperties) {
+		return new ScimAuditLoggingFilter(scimAuditProperties);
 	}
 
 	/**
@@ -62,9 +70,17 @@ public class SecurityConfig {
 	}
 
 	@Bean
-	public FilterRegistrationBean<ScimBearerAuthenticationFilter> disableScimServletRegistration(
-			ScimBearerAuthenticationFilter filter) {
-		FilterRegistrationBean<ScimBearerAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+	public FilterRegistrationBean<ScimAuthenticationFilter> disableScimServletRegistration(
+			ScimAuthenticationFilter filter) {
+		FilterRegistrationBean<ScimAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+		registration.setEnabled(false);
+		return registration;
+	}
+
+	@Bean
+	public FilterRegistrationBean<ScimAuditLoggingFilter> disableScimAuditServletRegistration(
+			ScimAuditLoggingFilter filter) {
+		FilterRegistrationBean<ScimAuditLoggingFilter> registration = new FilterRegistrationBean<>(filter);
 		registration.setEnabled(false);
 		return registration;
 	}
@@ -79,7 +95,12 @@ public class SecurityConfig {
 			.toList();
 		config.setAllowedOrigins(origins);
 		config.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-		config.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "Accept"));
+		config.setAllowedHeaders(java.util.List.of(
+				"Authorization",
+				"Content-Type",
+				"Accept",
+				"X-Correlation-ID",
+				"X-Request-Id"));
 		config.setAllowCredentials(true);
 		config.setMaxAge(3600L);
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -91,15 +112,17 @@ public class SecurityConfig {
 	@Order(1)
 	public SecurityFilterChain scimSecurityFilterChain(
 			HttpSecurity http,
-			ScimBearerAuthenticationFilter scimBearerAuthenticationFilter,
+			ScimAuditLoggingFilter scimAuditLoggingFilter,
+			ScimAuthenticationFilter scimAuthenticationFilter,
 			JsonAuthEntryPoint jsonAuthEntryPoint) throws Exception {
 		return http
 				.securityMatcher("/scim/v2/**")
 				.csrf(AbstractHttpConfigurer::disable)
 				.cors(Customizer.withDefaults())
 				.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.authorizeHttpRequests(a -> a.anyRequest().hasRole("SCIM_INTEGRATION"))
-				.addFilterBefore(scimBearerAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+				.authorizeHttpRequests(a -> a.anyRequest().hasAnyRole("ADMIN", "SCIM_INTEGRATION"))
+				.addFilterBefore(scimAuditLoggingFilter, UsernamePasswordAuthenticationFilter.class)
+				.addFilterBefore(scimAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 				.exceptionHandling(e -> e.authenticationEntryPoint(jsonAuthEntryPoint))
 				.build();
 	}

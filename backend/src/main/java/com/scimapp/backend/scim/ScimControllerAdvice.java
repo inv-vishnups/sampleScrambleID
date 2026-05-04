@@ -7,7 +7,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.scimapp.backend.scim.dto.ScimErrorResponse;
 
-@RestControllerAdvice(assignableTypes = ScimUserController.class)
+@RestControllerAdvice(assignableTypes = {
+		ScimUserController.class,
+		ScimGroupController.class,
+		ScimServiceProviderConfigController.class,
+		ScimResourceTypesController.class,
+		ScimSchemasController.class
+})
 public class ScimControllerAdvice {
 
 	@ExceptionHandler(ScimException.class)

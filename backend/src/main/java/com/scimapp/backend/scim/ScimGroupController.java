@@ -17,59 +17,64 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import com.scimapp.backend.scim.dto.ScimGroupResource;
 import com.scimapp.backend.scim.dto.ScimListResponse;
 import com.scimapp.backend.scim.dto.ScimPatchRequest;
-import com.scimapp.backend.scim.dto.ScimUserResource;
 
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
-@RequestMapping(path = "/scim/v2/Users", produces = { "application/scim+json", MediaType.APPLICATION_JSON_VALUE })
-public class ScimUserController {
+@RequestMapping(path = "/scim/v2/Groups", produces = { "application/scim+json", MediaType.APPLICATION_JSON_VALUE })
+public class ScimGroupController {
 
 	private static final String APPLICATION_SCIM_JSON = "application/scim+json";
 
-	private final ScimUserService scimUserService;
+	private final ScimGroupService scimGroupService;
 
-	public ScimUserController(ScimUserService scimUserService) {
-		this.scimUserService = scimUserService;
+	public ScimGroupController(ScimGroupService scimGroupService) {
+		this.scimGroupService = scimGroupService;
 	}
 
 	@PostMapping(consumes = { MediaType.APPLICATION_JSON_VALUE, APPLICATION_SCIM_JSON })
-	public ResponseEntity<ScimUserResource> create(@RequestBody ScimUserResource body, HttpServletRequest request) {
-		String collectionUrl = usersCollectionUrl(request);
-		ScimUserResource saved = scimUserService.create(body, collectionUrl);
+	public ResponseEntity<ScimGroupResource> create(@RequestBody ScimGroupResource body, HttpServletRequest request) {
+		String groupsUrl = groupsCollectionUrl(request);
+		String usersUrl = usersCollectionUrl(request);
+		ScimGroupResource saved = scimGroupService.create(body, groupsUrl, usersUrl);
 		URI location = URI.create(saved.getMeta().location());
 		return ResponseEntity.status(HttpStatus.CREATED).location(location).body(saved);
 	}
 
 	@GetMapping
-	public ScimListResponse<ScimUserResource> list(
+	public ScimListResponse<ScimGroupResource> list(
 			@RequestParam(name = "startIndex", required = false) Integer startIndex,
 			@RequestParam(name = "count", required = false) Integer count,
 			HttpServletRequest request) {
-		return scimUserService.list(startIndex, count, usersCollectionUrl(request));
+		return scimGroupService.list(startIndex, count, groupsCollectionUrl(request), usersCollectionUrl(request));
 	}
 
 	@GetMapping("/{id}")
-	public ScimUserResource get(@PathVariable String id, HttpServletRequest request) {
-		return scimUserService.get(id, usersCollectionUrl(request));
+	public ScimGroupResource get(@PathVariable String id, HttpServletRequest request) {
+		return scimGroupService.get(id, groupsCollectionUrl(request), usersCollectionUrl(request));
 	}
 
 	@PutMapping(path = "/{id}", consumes = { MediaType.APPLICATION_JSON_VALUE, APPLICATION_SCIM_JSON })
-	public ScimUserResource replace(@PathVariable String id, @RequestBody ScimUserResource body, HttpServletRequest request) {
-		return scimUserService.replace(id, body, usersCollectionUrl(request));
+	public ScimGroupResource replace(@PathVariable String id, @RequestBody ScimGroupResource body, HttpServletRequest request) {
+		return scimGroupService.replace(id, body, groupsCollectionUrl(request), usersCollectionUrl(request));
 	}
 
 	@PatchMapping(path = "/{id}", consumes = { MediaType.APPLICATION_JSON_VALUE, APPLICATION_SCIM_JSON })
-	public ScimUserResource patch(@PathVariable String id, @RequestBody ScimPatchRequest body, HttpServletRequest request) {
-		return scimUserService.patch(id, body, usersCollectionUrl(request));
+	public ScimGroupResource patch(@PathVariable String id, @RequestBody ScimPatchRequest body, HttpServletRequest request) {
+		return scimGroupService.patch(id, body, groupsCollectionUrl(request), usersCollectionUrl(request));
 	}
 
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> delete(@PathVariable String id) {
-		scimUserService.deactivate(id);
+		scimGroupService.delete(id);
 		return ResponseEntity.noContent().build();
+	}
+
+	private static String groupsCollectionUrl(HttpServletRequest request) {
+		return ServletUriComponentsBuilder.fromContextPath(request).path("/scim/v2/Groups").build().toUriString();
 	}
 
 	private static String usersCollectionUrl(HttpServletRequest request) {

@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -30,6 +31,8 @@ import com.scimapp.backend.scim.dto.ScimUserResource;
 
 @Service
 public class ScimUserService {
+
+	private static final Pattern SIMPLE_EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
 	private final UserRepository userRepository;
 	private final RoleRepository roleRepository;
@@ -59,6 +62,10 @@ public class ScimUserService {
 		if (email == null || email.isBlank()) {
 			email = in.getUserName() + "@scim.local";
 		}
+		email = email.trim();
+		if (!SIMPLE_EMAIL.matcher(email).matches()) {
+			throw new ScimException(HttpStatus.BAD_REQUEST, "invalidValue", "emails[0].value must be a valid email address");
+		}
 		if (userRepository.existsByEmail(email)) {
 			throw new ScimException(HttpStatus.CONFLICT, "uniqueness", "email must be unique");
 		}
@@ -69,7 +76,7 @@ public class ScimUserService {
 
 		User user = new User(
 				in.getUserName().trim(),
-				email.trim(),
+				email,
 				passwordEncoder.encode(UUID.randomUUID().toString()));
 		applyIncoming(user, in, true);
 		Set<Role> roles = new HashSet<>();
@@ -80,7 +87,7 @@ public class ScimUserService {
 	}
 
 	@Transactional(readOnly = true)
-	public ScimListResponse list(Integer startIndex, Integer count, String usersCollectionUrl) {
+	public ScimListResponse<ScimUserResource> list(Integer startIndex, Integer count, String usersCollectionUrl) {
 		int start = startIndex == null || startIndex < 1 ? 1 : startIndex;
 		int pageSize = count == null || count < 1 ? 20 : Math.min(count, 100);
 		long total = userRepository.count();
