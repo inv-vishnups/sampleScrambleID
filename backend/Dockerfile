@@ -1,5 +1,5 @@
 # Build
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM eclipse-temurin:25-jdk-alpine AS build
 WORKDIR /build
 COPY .mvn/ .mvn
 COPY mvnw pom.xml ./
@@ -8,7 +8,7 @@ COPY src ./src
 RUN ./mvnw -q -DskipTests package
 
 # Run
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 RUN addgroup -g 1001 spring && adduser -S -u 1001 -G spring spring
 COPY --from=build /build/target/*.jar app.jar
